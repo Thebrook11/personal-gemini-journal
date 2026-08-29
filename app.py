@@ -77,7 +77,7 @@ with st.sidebar:
     **Core Stack:**
     - **Engine:** `gemini-2.5-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
-    - **Reliability:** Dynamic Fallback Architecture
+    - **UI Engine:** Streamlit Next-Gen
     """)
 
 # --- 6. Hero Header ---
@@ -108,7 +108,8 @@ with tab_log:
             type=["png", "jpg", "jpeg"]
         )
         
-        submit_btn = st.button("🚀 Analyze & Save Reflection", type="primary", use_container_width=True)
+        # Updated width parameter
+        submit_btn = st.button("🚀 Analyze & Save Reflection", type="primary", width="stretch")
 
     with col_out:
         st.markdown("##### 🎯 Cognitive Insights Stream")
@@ -200,10 +201,12 @@ with tab_telemetry:
         )
         fig.update_traces(line_color="#818cf8", line_width=3, marker=dict(size=10, color="#6366f1"))
         fig.update_layout(yaxis_range=[1, 10], margin=dict(l=20, r=20, t=40, b=20), paper_bgcolor="#0b0f19", plot_bgcolor="#0b0f19")
-        st.plotly_chart(fig, use_container_width=True)
+        
+        # Updated width parameter
+        st.plotly_chart(fig, width="stretch")
         
         st.markdown("###### Complete Archive")
-        st.dataframe(df[["date", "mood_score", "sentiment", "entry"]], use_container_width=True)
+        st.dataframe(df[["date", "mood_score", "sentiment", "entry"]], width="stretch")
 
 # TAB 3: Report Download
 with tab_export:
