@@ -90,7 +90,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     **Core Stack:**
-    - **Engine:** `gemini-2.5-flash`
+    - **Engine:** `gemini-3.5-flash-lite` / `gemini-3.6-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
     - **UI Engine:** Streamlit Next-Gen
     """)
@@ -161,10 +161,10 @@ Strictly output your response with these exact headers:
                 response_text = None
                 last_err = None
                 
-                # High free-tier quota models
+                # Active supported models
                 models_to_try = [
-                    "gemini-2.5-flash",
-                    "gemini-2.5-flash-lite"
+                    "gemini-3.5-flash-lite",
+                    "gemini-3.6-flash"
                 ]
                 
                 for mod in models_to_try:
