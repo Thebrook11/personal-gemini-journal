@@ -75,7 +75,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     **Core Stack:**
-    - **Engine:** `gemini-2.5-flash`
+    - **Engine:** `gemini-3.6-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
     - **UI Engine:** Streamlit Next-Gen
     """)
@@ -108,7 +108,6 @@ with tab_log:
             type=["png", "jpg", "jpeg"]
         )
         
-        # Updated width parameter
         submit_btn = st.button("🚀 Analyze & Save Reflection", type="primary", width="stretch")
 
     with col_out:
@@ -146,7 +145,12 @@ Strictly output your response with these exact headers:
 
                 response_text = None
                 last_err = None
-                models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+                
+                # Active supported models
+                models_to_try = [
+                    "gemini-3.6-flash",
+                    "gemini-3.1-pro-preview"
+                ]
                 
                 for mod in models_to_try:
                     try:
@@ -202,7 +206,6 @@ with tab_telemetry:
         fig.update_traces(line_color="#818cf8", line_width=3, marker=dict(size=10, color="#6366f1"))
         fig.update_layout(yaxis_range=[1, 10], margin=dict(l=20, r=20, t=40, b=20), paper_bgcolor="#0b0f19", plot_bgcolor="#0b0f19")
         
-        # Updated width parameter
         st.plotly_chart(fig, width="stretch")
         
         st.markdown("###### Complete Archive")
