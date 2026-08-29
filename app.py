@@ -46,7 +46,6 @@ st.markdown("""
         margin-top: 6px;
     }
     
-    /* Crystal Clear High-Contrast Reflection Box */
     .reflection-box {
         background-color: #0b1120;
         border: 2px solid #6366f1;
@@ -91,7 +90,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     **Core Stack:**
-    - **Engine:** `gemini-3.6-flash`
+    - **Engine:** `gemini-2.5-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
     - **UI Engine:** Streamlit Next-Gen
     """)
@@ -162,9 +161,10 @@ Strictly output your response with these exact headers:
                 response_text = None
                 last_err = None
                 
+                # High free-tier quota models
                 models_to_try = [
-                    "gemini-3.6-flash",
-                    "gemini-3.1-pro-preview"
+                    "gemini-2.5-flash",
+                    "gemini-2.5-flash-lite"
                 ]
                 
                 for mod in models_to_try:
@@ -178,7 +178,7 @@ Strictly output your response with these exact headers:
                             break
                     except Exception as err:
                         last_err = err
-                        time.sleep(1)
+                        time.sleep(2)
 
                 if response_text:
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
@@ -199,8 +199,6 @@ Strictly output your response with these exact headers:
                     
                     with col_out:
                         st.success("✅ Log saved & telemetry updated!")
-                        
-                        # High-visibility container for crystal clear formatting
                         with st.container(border=True):
                             st.markdown(response_text)
                 else:
