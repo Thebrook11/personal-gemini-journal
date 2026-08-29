@@ -15,36 +15,52 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- 2. Clean High-End UI ---
+# --- 2. Clean High-Contrast UI Styling ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
+    
     .hero-container {
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-        border: 1px solid #334155;
+        border: 1px solid #4338ca;
         padding: 24px 30px;
         border-radius: 18px;
         margin-bottom: 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
+    
     .hero-title {
-        color: #c7d2fe;
+        color: #a5b4fc !important;
         font-size: 28px;
         font-weight: 800;
         margin: 0;
     }
+    
     .hero-subtitle {
-        color: #94a3b8;
-        font-size: 14px;
+        color: #cbd5e1 !important;
+        font-size: 15px;
         margin-top: 6px;
     }
+    
+    /* Crystal Clear High-Contrast Reflection Box */
     .reflection-box {
-        background: #0f172a;
-        border: 1px solid #3b82f6;
-        padding: 20px;
+        background-color: #0b1120;
+        border: 2px solid #6366f1;
+        padding: 24px;
         border-radius: 14px;
+        color: #f8fafc !important;
+        font-size: 16px;
+        line-height: 1.7;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+    }
+    
+    .reflection-box strong {
+        color: #38bdf8 !important;
+        font-size: 17px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -112,8 +128,8 @@ with tab_log:
 
     with col_out:
         st.markdown("##### 🎯 Cognitive Insights Stream")
-        status_box = st.empty()
-        status_box.info("Write your thoughts or upload a note image on the left to start AI analysis.")
+        output_placeholder = st.empty()
+        output_placeholder.info("Write your thoughts or upload a note image on the left to start AI analysis.")
 
     if submit_btn:
         if not api_key:
@@ -146,7 +162,6 @@ Strictly output your response with these exact headers:
                 response_text = None
                 last_err = None
                 
-                # Active supported models
                 models_to_try = [
                     "gemini-3.6-flash",
                     "gemini-3.1-pro-preview"
@@ -184,7 +199,10 @@ Strictly output your response with these exact headers:
                     
                     with col_out:
                         st.success("✅ Log saved & telemetry updated!")
-                        st.markdown(f'<div class="reflection-box">{response_text}</div>', unsafe_allow_html=True)
+                        
+                        # High-visibility container for crystal clear formatting
+                        with st.container(border=True):
+                            st.markdown(response_text)
                 else:
                     st.error(f"Error communicating with Gemini: {last_err}")
 
