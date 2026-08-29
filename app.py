@@ -75,9 +75,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     **Core Stack:**
-    - **Engine:** `gemini-3.6-flash`
+    - **Engine:** `gemini-2.5-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
-    - **Reliability:** Auto-Retry Resilience Engine
+    - **Reliability:** Dynamic Fallback Architecture
     """)
 
 # --- 6. Hero Header ---
@@ -117,11 +117,11 @@ with tab_log:
 
     if submit_btn:
         if not api_key:
-            st.error("⚠️ API Key bhetli nahi! Streamlit secrets madhe GEMINI_API_KEY set kara.")
+            st.error("⚠️ API Key not found in secrets. Please configure `GEMINI_API_KEY`.")
         elif not entry_text.strip() and not uploaded_image:
-            st.warning("⚠️ Kahi tri text liha kiva photo upload kara.")
+            st.warning("⚠️ Please provide text or an image.")
         else:
-            with st.spinner("Gemini analysis running... (with auto-retry resilience)"):
+            with st.spinner("Processing reflection via Gemini Engine..."):
                 client = genai.Client(api_key=api_key)
                 
                 system_prompt = """You are an advanced cognitive performance and psychological wellness coach.
@@ -143,25 +143,22 @@ Strictly output your response with these exact headers:
                     payload.append(img)
                     payload.append("Extract text and emotional context from this image and incorporate it into the reflection.")
 
-                # Resilient execution loop
                 response_text = None
                 last_err = None
-                models_to_try = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+                models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
                 
                 for mod in models_to_try:
-                    for attempt in range(2):
-                        try:
-                            resp = client.models.generate_content(
-                                model=mod,
-                                contents=payload
-                            )
+                    try:
+                        resp = client.models.generate_content(
+                            model=mod,
+                            contents=payload
+                        )
+                        if resp.text:
                             response_text = resp.text
                             break
-                        except Exception as err:
-                            last_err = err
-                            time.sleep(1.5)
-                    if response_text:
-                        break
+                    except Exception as err:
+                        last_err = err
+                        time.sleep(1)
 
                 if response_text:
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
@@ -184,7 +181,7 @@ Strictly output your response with these exact headers:
                         st.success("✅ Log saved & telemetry updated!")
                         st.markdown(f'<div class="reflection-box">{response_text}</div>', unsafe_allow_html=True)
                 else:
-                    st.error(f"⚠️ High server load right now. Please click submit again in 5 seconds. ({last_err})")
+                    st.error(f"Error communicating with Gemini: {last_err}")
 
 # TAB 2: Telemetry Graph
 with tab_telemetry:
