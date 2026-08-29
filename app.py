@@ -1,224 +1,217 @@
 import streamlit as st
 from google import genai
+from PIL import Image
 import datetime
 import pandas as pd
 import plotly.express as px
+import re
 
-# --- Page Configuration ---
+# --- 1. Page Config ---
 st.set_page_config(
-    page_title="MindPulse AI - Multimodal Wellness Platform",
+    page_title="Personal Gemini Journal",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- High-End Workspace UI Styling ---
+# --- 2. Clean High-End UI ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    
-    .gradient-header {
-        background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #172554 100%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 28px 32px;
-        border-radius: 20px;
+    .hero-container {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 1px solid #334155;
+        padding: 24px 30px;
+        border-radius: 18px;
         margin-bottom: 24px;
-        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
     }
-    
-    .metric-card {
+    .hero-title {
+        color: #c7d2fe;
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0;
+    }
+    .hero-subtitle {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-top: 6px;
+    }
+    .reflection-box {
         background: #0f172a;
-        border: 1px solid #1e293b;
-        padding: 16px;
+        border: 1px solid #3b82f6;
+        padding: 20px;
         border-radius: 14px;
-        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Session State Management ---
+# --- 3. Key from Secrets ---
+api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+# --- 4. Mock History for Instant Graph ---
 if "journal_db" not in st.session_state:
     st.session_state.journal_db = [
-        {"date": "2026-08-25", "mood_score": 7, "mood": "Optimistic", "entry": "Started a new project, felt productive.", "feedback": "Great focus. Maintain steady milestones."},
-        {"date": "2026-08-26", "mood_score": 5, "mood": "Stressed", "entry": "Faced unexpected bugs in deployment.", "feedback": "Breathe. High-pressure states require breaks."},
-        {"date": "2026-08-27", "mood_score": 8, "mood": "Calm", "entry": "Went for an evening run, clear mind.", "feedback": "Physical movement strongly stabilizes focus."},
-        {"date": "2026-08-28", "mood_score": 6, "mood": "Reflective", "entry": "Reviewing long-term goals.", "feedback": "Strategic alignment prevents burnout."}
+        {"date": "2026-08-26", "mood_score": 7, "sentiment": "Motivated", "entry": "Kicked off architecture setup.", "feedback": "High focus and clarity."},
+        {"date": "2026-08-27", "mood_score": 5, "sentiment": "Overwhelmed", "entry": "Faced environment blockers.", "feedback": "Structured breaks help reduce cognitive load."},
+        {"date": "2026-08-28", "mood_score": 8, "sentiment": "Accomplished", "entry": "Resolved blockers, pipeline ready.", "feedback": "Strong resilience loop."}
     ]
 
-# --- Sidebar: Configuration & Analytics ---
+# --- 5. Sidebar Live Telemetry ---
 with st.sidebar:
-    st.markdown("### ⚙️ Workspace Configuration")
-    api_key = st.text_input(
-        "Google Gemini API Key",
-        type="password",
-        placeholder="Paste AI Studio Key...",
-        help="Free key from https://aistudio.google.com"
-    )
-    
-    st.markdown("---")
     st.markdown("### 📊 Live Analytics")
     total_entries = len(st.session_state.journal_db)
-    avg_mood = sum(item["mood_score"] for item in st.session_state.journal_db) / max(total_entries, 1)
+    avg_score = sum(x["mood_score"] for x in st.session_state.journal_db) / max(total_entries, 1)
     
-    col_sb1, col_sb2 = st.columns(2)
-    with col_sb1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.metric("Total Logs", total_entries)
-    with col_sb2:
-        st.metric("Avg Wellness", f"{avg_mood:.1f}/10")
+    with c2:
+        st.metric("Avg Wellness", f"{avg_score:.1f}/10")
         
     st.markdown("---")
-    st.caption("Engine: **Gemini 3.6 Flash Multimodal** | Architecture: **Zero-Leak Memory State**")
+    st.markdown("""
+    **Core Stack:**
+    - **Engine:** `gemini-2.5-flash`
+    - **Vision:** Multimodal OCR & Mood Parsing
+    - **Security:** In-Memory Zero-Leak Secrets
+    """)
 
-# --- Main App Hero Header ---
+# --- 6. Hero Header ---
 st.markdown("""
-<div class="gradient-header">
-    <h1 style="color: #c7d2fe; margin: 0; font-size: 30px; font-weight: 800;">🧠 MindPulse AI — Cognitive Wellness & Growth Hub</h1>
-    <p style="color: #94a3b8; margin: 6px 0 0 0; font-size: 15px;">Multimodal reflection engine combining vision, sentiment telemetry, and algorithmic habit formation.</p>
+<div class="hero-container">
+    <div class="hero-title">🧠 Personal Gemini Journal</div>
+    <div class="hero-subtitle">Multimodal cognitive journaling, sentiment telemetry, and algorithmic personal growth.</div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- Tabs Structure ---
-tab_reflect, tab_trends, tab_report = st.tabs(["✍️ Multimodal Journal", "📈 Wellness Telemetry", "📑 Executive Growth Report"])
+# --- 7. Main Tabs ---
+tab_log, tab_telemetry, tab_export = st.tabs(["✍️ Reflection Studio", "📈 Longitudinal Telemetry", "📑 Executive Growth Report"])
 
-# ==================== TAB 1: Multimodal Journal ====================
-with tab_reflect:
-    col_left, col_right = st.columns([3, 2])
+# TAB 1: Journal Input + Vision
+with tab_log:
+    col_in, col_out = st.columns([3, 2])
     
-    with col_left:
-        st.markdown("##### 📝 Daily Log & Contextual Intake")
-        journal_text = st.text_area(
-            "Express your thoughts, milestones, or current mental friction:",
-            placeholder="Describe your day, cognitive load, or key achievements...",
-            height=160
+    with col_in:
+        st.markdown("##### 📝 Daily Log Intake")
+        entry_text = st.text_area(
+            "Express thoughts, challenges, or daily wins:",
+            placeholder="How was your day? What went well or where did you face resistance?",
+            height=140
         )
         
         uploaded_image = st.file_uploader(
-            "Attach Visual Context (Daily sketch, workspace setup, or whiteboard note):",
+            "Attach Visual Context (Handwritten note, journal photo, or whiteboard):",
             type=["png", "jpg", "jpeg"]
         )
         
-        analyze_btn = st.button("🚀 Analyze & Generate Growth Plan", type="primary", use_container_width=True)
+        submit_btn = st.button("🚀 Analyze & Save Reflection", type="primary", use_container_width=True)
 
-    with col_right:
-        st.markdown("##### 🎯 Dynamic Analysis Stream")
-        result_placeholder = st.empty()
-        result_placeholder.info("Provide your thoughts or visual context on the left to trigger the multi-dimensional analysis pipeline.")
+    with col_out:
+        st.markdown("##### 🎯 Cognitive Insights Stream")
+        status_box = st.empty()
+        status_box.info("Write your thoughts or upload a note image on the left to start AI analysis.")
 
-    if analyze_btn:
+    if submit_btn:
         if not api_key:
-            st.error("⚠️ Please configure your Google Gemini API Key in the sidebar.")
-        elif not journal_text.strip() and not uploaded_image:
-            st.warning("⚠️ Please provide either text reflections or upload an image.")
+            st.error("⚠️ API Key bhetli nahi! Streamlit secrets madhe GEMINI_API_KEY set kara.")
+        elif not entry_text.strip() and not uploaded_image:
+            st.warning("⚠️ Kahi tri text liha kiva photo upload kara.")
         else:
-            with st.spinner("Executing Multimodal Analysis via Gemini 3.6 Flash..."):
+            with st.spinner("Gemini 2.5 Flash analyzing multimodal context..."):
                 try:
                     client = genai.Client(api_key=api_key)
                     
-                    system_prompt = """You are MindPulse AI, an advanced cognitive performance and psychological wellness coach.
-Analyze the provided journal entry (and any attached image).
-Provide output strictly formatted with the following headers:
+                    system_prompt = """You are an advanced cognitive performance and psychological wellness coach.
+Analyze the provided journal entry (and any attached image/notes).
+Strictly output your response with these exact headers:
 
-**📊 Mood Score:** [Give an integer score from 1 to 10 based on sentiment]
-**😊 Emotional Sentiment:** [Dominant emotional profile]
-**💡 Cognitive Reflection:** [2-3 sentences of deeply insightful, evidence-grounded psychological feedback]
+**Score:** [Integer between 1 and 10 representing overall mental positivity/clarity]
+**😊 Sentiment Profile:** [Single dominant emotion, e.g., Focused, Reflective, Energized, Stressed]
+**💡 Cognitive Reflection:** [2-3 empathetic, deeply analytical sentences addressing their state]
 **🎯 High-Impact Action Items:**
 - [Micro-Action: Next 2 hours]
 - [Macro-Habit: Next 7 days]
-**🧘 Mindful Grounding Prompt:** [One reflective question for tomorrow morning]
+**🧘 Morning Grounding Prompt:** [One actionable reflection question for tomorrow]
 """
-                    contents_payload = [system_prompt, f"User Journal Entry:\n{journal_text}"]
+                    payload = [system_prompt, f"User Journal Log:\n{entry_text}"]
                     
                     if uploaded_image:
-                        import io
-                        from PIL import Image
                         img = Image.open(uploaded_image)
-                        contents_payload.append(img)
-                        contents_payload.append("Analyze the emotional tone and environmental context visible in this image alongside the text.")
+                        payload.append(img)
+                        payload.append("Extract text and emotional context from this image and incorporate it into the reflection.")
 
                     response = client.models.generate_content(
                         model="gemini-3.6-flash",
-                        contents=contents_payload
+                        contents=payload
                     )
                     
-                    ai_reply = response.text
+                    ai_text = response.text
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
                     
-                    # Heuristic score extraction for telemetry chart
-                    mood_val = 7
-                    for token in ai_reply.split():
-                        if "/10" in token:
-                            try:
-                                mood_val = int(token.replace("/10", "").strip("*,"))
-                            except:
-                                pass
-                                
+                    score_match = re.search(r"\*\*Score:\*\*\s*(\d+)", ai_text)
+                    mood_score = int(score_match.group(1)) if score_match else 7
+                    
+                    sentiment_match = re.search(r"\*\*😊 Sentiment Profile:\*\*\s*(.+)", ai_text)
+                    sentiment_val = sentiment_match.group(1).strip() if sentiment_match else "Reflective"
+
                     st.session_state.journal_db.append({
                         "date": today_str,
-                        "mood_score": mood_val,
-                        "mood": "Analyzed",
-                        "entry": journal_text if journal_text else "[Visual Upload Context]",
-                        "feedback": ai_reply
+                        "mood_score": mood_score,
+                        "sentiment": sentiment_val,
+                        "entry": entry_text if entry_text else "[Multimodal Visual Upload]",
+                        "feedback": ai_text
                     })
                     
-                    with col_right:
-                        st.success("✅ Analysis Complete & Recorded!")
-                        st.markdown(f"""
-                        <div style="background: #1e293b; border: 1px solid #3b82f6; padding: 18px; border-radius: 12px; font-size: 13px;">
-                            {ai_reply}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                except Exception as e:
-                    st.error(f"Execution Error: {e}")
+                    with col_out:
+                        st.success("✅ Log saved & telemetry updated!")
+                        st.markdown(f'<div class="reflection-box">{ai_text}</div>', unsafe_allow_html=True)
 
-# ==================== TAB 2: Wellness Telemetry ====================
-with tab_trends:
-    st.markdown("##### 📈 Longitudinal Sentiment & Wellness Telemetry")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+# TAB 2: Telemetry Graph
+with tab_telemetry:
+    st.markdown("##### 📈 Longitudinal Cognitive Telemetry")
     df = pd.DataFrame(st.session_state.journal_db)
     
     if not df.empty:
         fig = px.line(
-            df, 
-            x="date", 
-            y="mood_score", 
+            df,
+            x="date",
+            y="mood_score",
             markers=True,
-            title="Cognitive Wellness Progression (Scale 1-10)",
-            labels={"date": "Timeline", "mood_score": "Wellness Index"},
+            title="Mental Clarity & Wellness Progression (Scale 1-10)",
+            labels={"date": "Timeline", "mood_score": "Cognitive Clarity Score"},
             template="plotly_dark"
         )
         fig.update_traces(line_color="#818cf8", line_width=3, marker=dict(size=10, color="#6366f1"))
         fig.update_layout(yaxis_range=[1, 10], margin=dict(l=20, r=20, t=40, b=20), paper_bgcolor="#0b0f19", plot_bgcolor="#0b0f19")
         st.plotly_chart(fig, use_container_width=True)
         
-        st.markdown("###### Detailed History Archive")
-        st.dataframe(df[["date", "mood_score", "entry"]], use_container_width=True)
-    else:
-        st.info("No timeline data available yet.")
+        st.markdown("###### Complete Archive")
+        st.dataframe(df[["date", "mood_score", "sentiment", "entry"]], use_container_width=True)
 
-# ==================== TAB 3: Executive Growth Report ====================
-with tab_report:
-    st.markdown("##### 📑 Automated Cognitive Performance Summary")
+# TAB 3: Report Download
+with tab_export:
+    st.markdown("##### 📑 Executive Growth Summary")
     if st.session_state.journal_db:
         st.markdown("""
-        **Summary Insights:**
-        - **Consistency Streak:** Active Tracking Recorded
-        - **Dominant Trend:** Positive Cognitive Stability
-        - **Optimization Priority:** Evening Wind-down Routine & Structured Deep-Work Windows
+        **System Highlights:**
+        - **Consistency Rate:** Active Routine
+        - **Dominant Mental State:** Upward Momentum
+        - **Next Focus:** Strategic Rest Windows & Deep Work Sprints
         """)
         
-        report_text = f"MINDPULSE COGNITIVE SUMMARY\nGenerated: {datetime.datetime.now()}\n\n"
+        export_content = f"PERSONAL GEMINI JOURNAL - PROGRESS REPORT\nGenerated: {datetime.datetime.now()}\n\n"
         for item in st.session_state.journal_db:
-            report_text += f"[{item['date']}] Score: {item['mood_score']}/10\nEntry: {item['entry']}\n\n"
+            export_content += f"[{item['date']}] Score: {item['mood_score']}/10 | State: {item['sentiment']}\nLog: {item['entry']}\nFeedback:\n{item['feedback']}\n{'-'*50}\n"
             
         st.download_button(
-            label="📥 Download Structured Report (.txt)",
-            data=report_text,
-            file_name=f"mindpulse_report_{datetime.date.today()}.txt",
+            label="📥 Download Complete Report (.txt)",
+            data=export_content,
+            file_name=f"gemini_journal_report_{datetime.date.today()}.txt",
             mime="text/plain"
         )
-    else:
-        st.info("Add entries to generate your performance report.")
