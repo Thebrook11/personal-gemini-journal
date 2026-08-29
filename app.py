@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 import plotly.express as px
 import re
+import time
 
 # --- 1. Page Config ---
 st.set_page_config(
@@ -74,9 +75,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     **Core Stack:**
-    - **Engine:** `gemini-2.5-flash`
+    - **Engine:** `gemini-3.6-flash`
     - **Vision:** Multimodal OCR & Mood Parsing
-    - **Security:** In-Memory Zero-Leak Secrets
+    - **Reliability:** Auto-Retry Resilience Engine
     """)
 
 # --- 6. Hero Header ---
@@ -120,11 +121,10 @@ with tab_log:
         elif not entry_text.strip() and not uploaded_image:
             st.warning("⚠️ Kahi tri text liha kiva photo upload kara.")
         else:
-            with st.spinner("Gemini 2.5 Flash analyzing multimodal context..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    
-                    system_prompt = """You are an advanced cognitive performance and psychological wellness coach.
+            with st.spinner("Gemini analysis running... (with auto-retry resilience)"):
+                client = genai.Client(api_key=api_key)
+                
+                system_prompt = """You are an advanced cognitive performance and psychological wellness coach.
 Analyze the provided journal entry (and any attached image/notes).
 Strictly output your response with these exact headers:
 
@@ -136,25 +136,40 @@ Strictly output your response with these exact headers:
 - [Macro-Habit: Next 7 days]
 **🧘 Morning Grounding Prompt:** [One actionable reflection question for tomorrow]
 """
-                    payload = [system_prompt, f"User Journal Log:\n{entry_text}"]
-                    
-                    if uploaded_image:
-                        img = Image.open(uploaded_image)
-                        payload.append(img)
-                        payload.append("Extract text and emotional context from this image and incorporate it into the reflection.")
+                payload = [system_prompt, f"User Journal Log:\n{entry_text}"]
+                
+                if uploaded_image:
+                    img = Image.open(uploaded_image)
+                    payload.append(img)
+                    payload.append("Extract text and emotional context from this image and incorporate it into the reflection.")
 
-                    response = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=payload
-                    )
-                    
-                    ai_text = response.text
+                # Resilient execution loop
+                response_text = None
+                last_err = None
+                models_to_try = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+                
+                for mod in models_to_try:
+                    for attempt in range(2):
+                        try:
+                            resp = client.models.generate_content(
+                                model=mod,
+                                contents=payload
+                            )
+                            response_text = resp.text
+                            break
+                        except Exception as err:
+                            last_err = err
+                            time.sleep(1.5)
+                    if response_text:
+                        break
+
+                if response_text:
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
                     
-                    score_match = re.search(r"\*\*Score:\*\*\s*(\d+)", ai_text)
+                    score_match = re.search(r"\*\*Score:\*\*\s*(\d+)", response_text)
                     mood_score = int(score_match.group(1)) if score_match else 7
                     
-                    sentiment_match = re.search(r"\*\*😊 Sentiment Profile:\*\*\s*(.+)", ai_text)
+                    sentiment_match = re.search(r"\*\*😊 Sentiment Profile:\*\*\s*(.+)", response_text)
                     sentiment_val = sentiment_match.group(1).strip() if sentiment_match else "Reflective"
 
                     st.session_state.journal_db.append({
@@ -162,15 +177,14 @@ Strictly output your response with these exact headers:
                         "mood_score": mood_score,
                         "sentiment": sentiment_val,
                         "entry": entry_text if entry_text else "[Multimodal Visual Upload]",
-                        "feedback": ai_text
+                        "feedback": response_text
                     })
                     
                     with col_out:
                         st.success("✅ Log saved & telemetry updated!")
-                        st.markdown(f'<div class="reflection-box">{ai_text}</div>', unsafe_allow_html=True)
-
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                        st.markdown(f'<div class="reflection-box">{response_text}</div>', unsafe_allow_html=True)
+                else:
+                    st.error(f"⚠️ High server load right now. Please click submit again in 5 seconds. ({last_err})")
 
 # TAB 2: Telemetry Graph
 with tab_telemetry:
